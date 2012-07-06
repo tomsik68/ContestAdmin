@@ -7,7 +7,6 @@
 package sk.tomsik68.contestadmn;
 
 import javax.persistence.Entity;
-import javax.persistence.Id;
 import javax.persistence.Table;
 
 import org.bukkit.Bukkit;
@@ -23,7 +22,6 @@ import com.avaje.ebean.validation.NotNull;
 @Table(name="contest_entries")
 public class ContestEntry {
     @NotNull
-    @Id
     private String playerName;
     @NotNull
     private String contestName;

@@ -18,7 +18,7 @@ import com.avaje.ebean.validation.NotNull;
  */
 @Entity
 @Table(name="contests")
-public class Contest {
+public class Contest implements Cloneable{
     @Id
     @NotNull
     private String name;
@@ -35,6 +35,7 @@ public class Contest {
     }
     public Contest(String nam, String star){
         setName(nam);
+        starter = star;
         setEnded(false);
         //standard contructor
     }
@@ -68,7 +69,7 @@ public class Contest {
     public void setBannedUsers(String bannedUsers) {
         this.bannedUsers = bannedUsers;
     }
-    public boolean getEnded() {
+    public boolean isEnded() {
         return ended;
     }
     public void setEnded(boolean ended) {
@@ -79,5 +80,16 @@ public class Contest {
     }
     public void setWinner(String winner) {
         this.winner = winner;
+    }
+    @Override
+    public Object clone() {
+        Contest contest = new Contest(getName(), getStarter());
+        contest.setBannedUsers(getBannedUsers());
+        contest.setDescription(getDescription());
+        contest.setEnded(isEnded());
+        contest.setRules(getRules());
+        contest.setStarter(getStarter());
+        contest.setWinner(getWinner());
+        return contest;
     }
 }

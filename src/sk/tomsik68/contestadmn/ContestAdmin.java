@@ -19,11 +19,13 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** ContestAdmin - Contest administration helper plugin for Bukkit.
- * Check <a href="http://dev.bukkit.org/server-mods/contestadmin/">Plugin's Homepage</a>
+/**
+ * ContestAdmin - Contest administration helper plugin for Bukkit. Check <a
+ * href="http://dev.bukkit.org/server-mods/contestadmin/">Plugin's Homepage</a>
  * for more information.
+ * 
  * @author Tomsik68
- *
+ * 
  */
 public class ContestAdmin extends JavaPlugin {
     private String consolePurge;
@@ -55,6 +57,7 @@ public class ContestAdmin extends JavaPlugin {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             sendHelp(sender);
+            return true;
         }
         if (args.length == 1) {
             if (args[0].equalsIgnoreCase("list")) {
@@ -63,6 +66,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 List<Contest> contests = getContests();
+                sender.sendMessage("[ContestAdmin] Showing " + contests.size() + " contests: ");
                 StringBuilder sb = new StringBuilder();
                 for (Contest con : contests) {
                     if (tookPartIn(con.getName(), sender.getName()))
@@ -72,11 +76,12 @@ public class ContestAdmin extends JavaPlugin {
                     else
                         sb = sb.append(ChatColor.RED).append(con.getName()).append(',');
                 }
-                if (sb.length() > 0) {
+                if (sb.toString().length() > 0) {
                     sb = sb.deleteCharAt(sb.length() - 1);
-                    sender.sendMessage("");
-                }
-                sender.sendMessage("[ContestAdmin] There are no on-going contests.");
+                    sender.sendMessage(sb.toString());
+                } else
+                    sender.sendMessage("[ContestAdmin] There are no on-going contests.");
+                return true;
             }
         }
         if (args.length == 2) {
@@ -91,6 +96,7 @@ public class ContestAdmin extends JavaPlugin {
                 } else {
                     addContest(args[1], sender.getName());
                     getServer().broadcastMessage("[ContestAdmin] Contest " + args[1] + " has just been promoted! Type /ca info " + args[1] + " to find out more!");
+                    return true;
                 }
 
             } else if (args[0].equalsIgnoreCase("stop")) {
@@ -101,9 +107,12 @@ public class ContestAdmin extends JavaPlugin {
                 if (contestExists(args[1])) {
                     Contest con = getContest(args[1]);
                     removeContest(args[1]);
-                    con.setEnded(true);
-                    addContest(con);
+                    Contest contest = (Contest) con.clone();
+                    contest.setEnded(true);
+
+                    addContest(contest);
                     getServer().broadcastMessage("[ContestAdmin] Contest " + args[1] + " has just ended. Let it be judged. Good luck there!");
+                    return true;
                 } else {
                     sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
@@ -115,6 +124,7 @@ public class ContestAdmin extends JavaPlugin {
                 }
                 if (!contestExists(args[1])) {
                     sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    return true;
                 }
                 ContestEntry entry = getEntry(args[1], sender.getName());
                 if (entry != null) {
@@ -123,13 +133,15 @@ public class ContestAdmin extends JavaPlugin {
                         player.teleport(entry.getLocation());
                         sender.sendMessage("[ContestAdmin] Welcome to your contest entry.");
                     } else {
-
+                        sender.sendMessage("[ContestAdmin] You need to be player to use this command.");
+                        return true;
                     }
                 } else {
-                    if (getContest(args[1]).getEnded())
+                    if (getContest(args[1]).isEnded())
                         sender.sendMessage("[ContestAdmin] You haven't submitted any entry to " + args[1] + ". Bad luck, contest has already ended.");
                     else
                         sender.sendMessage("[ContestAdmin] You haven't submitted any entry to " + args[1] + ". However, you can still submit your entry.");
+                    return true;
                 }
 
             } else if (args[0].equalsIgnoreCase("sub")) {
@@ -146,7 +158,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 enterContest(args[1], (Player) sender);
-                sender.sendMessage("[ContestAdmin] You've just entered " + args[1] + ". Good luck!");
+                return true;
             } else if (args[0].equalsIgnoreCase("unsub")) {
                 if (!sender.hasPermission("ca.unsub")) {
                     sender.sendMessage(command.getPermissionMessage());
@@ -161,7 +173,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 // TODO discuss
-                if (!getContest(args[1]).getEnded()) {
+                if (!getContest(args[1]).isEnded()) {
                     unsubmit(args[1], (Player) sender);
                     sender.sendMessage("[ContestAdmin] You've just left " + args[1] + ".");
                 } else {
@@ -172,16 +184,30 @@ public class ContestAdmin extends JavaPlugin {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
+                if (!contestExists(args[1])) {
+                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    return true;
+                }
                 if (args[1].equalsIgnoreCase("confirm")) {
                     if (!(sender instanceof Player)) {
                         if (consolePurge == null) {
                             sender.sendMessage("[ContestAdmin] You've got nothing to confirm.");
+                            return true;
                         }
                         if (!contestExists(consolePurge)) {
                             sender.sendMessage("[ContestAdmin] Contest " + consolePurge + " doesn't exist.");
                             return true;
                         }
                         removeContestData(consolePurge, sender);
+                    } else {
+                        List<MetadataValue> values = ((Player) sender).getMetadata("ca-purge");
+                        for (MetadataValue value : values) {
+                            if (value.getOwningPlugin().getName().equalsIgnoreCase(getName())) {
+                                removeContestData(value.asString(), sender);
+                                break;
+                            }
+                        }
+                        ((Player) sender).removeMetadata("ca-purge", this);
                     }
                 } else {
                     if (!(sender instanceof Player)) {
@@ -190,6 +216,7 @@ public class ContestAdmin extends JavaPlugin {
                         ((Player) sender).setMetadata("ca-purge", new FixedMetadataValue(this, args[1]));
                     }
                     sender.sendMessage("[ContestAdmin] Purging " + args[1] + ". Are you sure? confirm with /ca purge confirm");
+                    return true;
                 }
             } else if (args[0].equalsIgnoreCase("tpord")) {
                 if (!sender.hasPermission("ca.tpord")) {
@@ -205,6 +232,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 tpOrd(args[1], (Player) sender);
+                return true;
             } else if (args[0].equalsIgnoreCase("info")) {
                 if (!sender.hasPermission("ca.info")) {
                     sender.sendMessage(command.getPermissionMessage());
@@ -219,7 +247,7 @@ public class ContestAdmin extends JavaPlugin {
                 sender.sendMessage("Organisator: " + contest.getStarter());
                 if (contest.getBannedUsers() != null && contest.getBannedUsers().length() > 0)
                     sender.sendMessage("Banned: " + contest.getBannedUsers());
-                if (contest.getEnded())
+                if (contest.isEnded())
                     sender.sendMessage("Ended");
                 else
                     sender.sendMessage("Accepting entries");
@@ -232,7 +260,7 @@ public class ContestAdmin extends JavaPlugin {
                 if (contest.getWinner() != null && contest.getWinner().length() > 0) {
                     sender.sendMessage("Winner: " + contest.getWinner());
                 }
-
+                return true;
             } else if (args[0].equalsIgnoreCase("who")) {
                 if (!sender.hasPermission("ca.who")) {
                     sender.sendMessage(command.getPermissionMessage());
@@ -243,6 +271,10 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 List<ContestEntry> entries = getEntries(args[1]);
+                if (entries.size() == 0) {
+                    sender.sendMessage("[ContestAdmin] No one has took part in this contest yet.");
+                    return true;
+                }
                 StringBuilder sb = new StringBuilder();
                 for (ContestEntry entry : entries) {
                     if (getServer().getPlayer(entry.getPlayerName()) != null)
@@ -250,6 +282,10 @@ public class ContestAdmin extends JavaPlugin {
                     else
                         sb = sb.append(ChatColor.RED).append(entry.getPlayerName()).append(ChatColor.WHITE).append(',');
                 }
+                sb = sb.deleteCharAt(sb.length() - 1);
+                sender.sendMessage("[ContestAdmin] Users who took part in " + args[1]);
+                sender.sendMessage(sb.toString());
+                return true;
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("tp")) {
@@ -267,8 +303,24 @@ public class ContestAdmin extends JavaPlugin {
                 }
                 if (!tookPartIn(args[1], args[2])) {
                     sender.sendMessage("[ContestAdmin] " + args[2] + " hasn't submitted any entry to " + args[1]);
+                    return true;
                 }
                 ((Player) sender).teleport(getEntry(args[1], args[2]).getLocation());
+                return true;
+            } else if (args[0].equalsIgnoreCase("remove")) {
+                if (!sender.hasPermission("ca.remove")) {
+                    sender.sendMessage(command.getPermissionMessage());
+                    return true;
+                }
+                if (!contestExists(args[1])) {
+                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    return true;
+                }
+                if (!tookPartIn(args[1], args[2])) {
+                    sender.sendMessage("[ContestAdmin] " + args[2] + " hasn't submitted any entry to " + args[1]);
+                    return true;
+                }
+                removeEntry(args[1], args[2]);
             } else if (args[0].equalsIgnoreCase("win")) {
                 if (!sender.hasPermission("ca.win")) {
                     sender.sendMessage(command.getPermissionMessage());
@@ -278,17 +330,22 @@ public class ContestAdmin extends JavaPlugin {
                     sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
-                if (!getContest(args[1]).getEnded()) {
+                if (!getContest(args[1]).isEnded()) {
                     sender.sendMessage("[ContestAdmin] Contest " + args[1] + " hasn't ended yet, but we'll end it for you. :)");
                 }
                 Contest con = getContest(args[1]);
                 removeContest(args[1]);
-                con.setEnded(true);
-                con.setWinner(args[2]);
-                addContest(con);
+                Contest contest = (Contest) con.clone();
+                contest.setEnded(true);
+                contest.setWinner(args[2]);
+
+                addContest(contest);
                 getServer().broadcastMessage("[ContestAdmin] And the winner of " + args[1] + " iiiiiiiiiiiiis: ");
                 getServer().broadcastMessage(args[2]);
-            } else if (args[0].equalsIgnoreCase("mod")) {
+                return true;
+            }
+        } else if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("mod")) {
                 if (!sender.hasPermission("ca.mod")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
@@ -304,14 +361,16 @@ public class ContestAdmin extends JavaPlugin {
                 if (args[2].equalsIgnoreCase("name")) {
                     Contest con = getContest(args[1]);
                     removeContest(args[1]);
-                    con.setName(args[3]);
-                    addContest(con);
+                    Contest contest = (Contest) con.clone();
+                    contest.setName(args[3]);
+                    addContest(contest);
                 }
                 if (args[2].equalsIgnoreCase("creator")) {
                     Contest con = getContest(args[1]);
                     removeContest(args[1]);
-                    con.setStarter(args[3]);
-                    addContest(con);
+                    Contest contest = (Contest) con.clone();
+                    contest.setStarter(args[3]);
+                    addContest(contest);
                 }
                 /*
                  * if (args[2].equalsIgnoreCase("desc")) { Contest con =
@@ -324,10 +383,14 @@ public class ContestAdmin extends JavaPlugin {
                 if (args[2].equalsIgnoreCase("ended")) {
                     Contest con = getContest(args[1]);
                     removeContest(args[1]);
-                    con.setEnded(Boolean.valueOf(args[3]));
-                    addContest(con);
+                    Contest contest = (Contest) con.clone();
+                    contest.setEnded(Boolean.valueOf(args[3]));
+                    addContest(contest);
                 }
+                sender.sendMessage("[ContestAdmin] "+args[2]+" of "+args[1]+" set to "+args[3]);
+                return true;
             }
+
         } else if (args.length == 5) {
             if (args[0].equalsIgnoreCase("mod") && args[2].equalsIgnoreCase("banned")) {
                 if (!sender.hasPermission("ca.mod")) {
@@ -340,25 +403,56 @@ public class ContestAdmin extends JavaPlugin {
                 }
                 Contest con = getContest(args[1]);
                 removeContest(args[1]);
+                Contest contest = (Contest) con.clone();
                 if (args[3].equalsIgnoreCase("add")) {
-                    con.setBannedUsers(con.getBannedUsers() + ("," + args[4]));
+                    contest.setBannedUsers(contest.getBannedUsers() + ("," + args[4]));
                     sender.sendMessage("[ContestAdmin] Successfully banned " + args[4] + " from " + args[1]);
                 } else if (args[3].equalsIgnoreCase("remove")) {
-                    con.getBannedUsers().replace(args[4], "");
-                    con.getBannedUsers().replace(",,", ",");
+                    contest.getBannedUsers().replace(args[4], "");
+                    contest.getBannedUsers().replace(",,", ",");
                     sender.sendMessage("[ContestAdmin] Successfully un-banned " + args[4] + " from " + args[1]);
                 }
-                addContest(con);
-
+                addContest(contest);
+                return true;
             }
+        } else if (args.length > 3 && args[0].equalsIgnoreCase("mod") && (args[2].equalsIgnoreCase("desc") || args[2].equalsIgnoreCase("rules"))) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 3; i < args.length; i++) {
+                sb = sb.append(args[i]).append(' ');
+            }
+            if (sb.length() > 0)
+                sb = sb.deleteCharAt(sb.length() - 1);
+            else {
+                sender.sendMessage("[ContestAdmin] Property value invalid.");
+                return true;
+            }
+
+            Contest contest = (Contest) getContest(args[1]);
+            removeContest(args[1]);
+            contest = (Contest) contest.clone();
+            if (args[2].equalsIgnoreCase("desc")) {
+                contest.setDescription(sb.toString());
+            } else if (args[2].equalsIgnoreCase("rules")) {
+                contest.setRules(sb.toString());
+            } else {
+                sender.sendMessage("[ContestAdmin] Property " + args[2] + " unknown");
+                return true;
+            }
+            addContest(contest);
+            sender.sendMessage("[ContestAdmin] " + args[2] + " of " + args[1] + " set.");
+            return true;
         }
 
-        return true;
+        return false;
+    }
+
+    private void removeEntry(String contest, String player) {
+        getDatabase().delete(getDatabase().find(ContestEntry.class).where().ieq("contestName", contest).ieq("playerName", player));
     }
 
     private void removeContestData(String contest, CommandSender sender) {
-        getDatabase().delete(getDatabase().find(Contest.class).where().ieq("name", contest));
-        getDatabase().delete(getDatabase().find(ContestEntry.class).where().ieq("contestName", contest));
+        getDatabase().delete(getDatabase().find(Contest.class).where().ieq("name", contest).findUnique());
+        getDatabase().delete(getDatabase().find(ContestEntry.class).where().ieq("contestName", contest).findList());
         sender.sendMessage("[ContestAdmin] Data of " + contest + " were removed.");
     }
 
@@ -369,20 +463,21 @@ public class ContestAdmin extends JavaPlugin {
         }
         if (!player.hasMetadata("ca-tpord")) {
             player.setMetadata("ca-tpord", new FixedMetadataValue(this, -1));
-            if (!getContest(contest).getEnded()) {
+            if (!getContest(contest).isEnded()) {
                 player.sendMessage("[ContestAdmin] Please note contest hasn't ended yet. Players can still submit new entries.");
             }
         }
         List<MetadataValue> values = player.getMetadata("ca-tpord");
         int ord = -1;
         for (MetadataValue value : values) {
-            if (value.getOwningPlugin().getName().equals(getDescription().getName())) {
+            if (value.getOwningPlugin().getName().equalsIgnoreCase(getDescription().getName())) {
                 ord = value.asInt();
                 break;
             }
         }
+        ord += 1;
         player.removeMetadata("ca-tpord", this);
-        player.setMetadata("ca-tpord", new FixedMetadataValue(this, ord++));
+        player.setMetadata("ca-tpord", new FixedMetadataValue(this, ord));
         List<ContestEntry> entries = getEntries(contest);
         if (ord < entries.size()) {
             player.teleport(entries.get(ord).getLocation());
@@ -391,6 +486,7 @@ public class ContestAdmin extends JavaPlugin {
             player.sendMessage("[ContestAdmin] No more entries on this contest. Move on to judging results.");
             player.removeMetadata("ca-tpord", this);
         }
+
     }
 
     private List<ContestEntry> getEntries(String contest) {
@@ -420,6 +516,7 @@ public class ContestAdmin extends JavaPlugin {
         }
         if (tookPartIn(contest, player.getName())) {
             player.sendMessage("[ContestAdmin] You've already took part in " + contest);
+            return;
         }
         ContestEntry entry = new ContestEntry();
         entry.setContestName(contest);
@@ -429,7 +526,7 @@ public class ContestAdmin extends JavaPlugin {
         entry.setY(player.getLocation().getY());
         entry.setZ(player.getLocation().getZ());
         getDatabase().save(entry);
-        player.sendMessage("[ContestAdmin] Entry submitted. You can unsubmit your entry by /ca unsub " + contest);
+        player.sendMessage("[ContestAdmin] Entry submitted. Good luck! You can unsubmit your entry by /ca unsub " + contest);
     }
 
     private boolean tookPartIn(String contest, String player) {
@@ -437,11 +534,14 @@ public class ContestAdmin extends JavaPlugin {
     }
 
     private boolean isBanned(String contest, String string) {
-        return Arrays.asList(getContest(contest).getBannedUsers().split(",")).contains(string);
+        if (getContest(contest).getBannedUsers() != null && getContest(contest).getBannedUsers().length() > 0)
+            return Arrays.asList(getContest(contest).getBannedUsers().split(",")).contains(string);
+        else
+            return false;
     }
 
     private ContestEntry getEntry(String contest, String player) {
-        return getDatabase().find(ContestEntry.class).where().ieq("playerName", player).findUnique();
+        return getDatabase().find(ContestEntry.class).where().ieq("playerName", player).ieq("contestName", contest).findUnique();
     }
 
     private void addContest(Contest con) {

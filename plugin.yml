@@ -1,7 +1,7 @@
 name: ContestAdmin
 description: Plugin which makes contest administration even easier
 main: sk.tomsik68.contestadmn.ContestAdmin
-version: 0.1a
+version: 0.1
 database: true
 commands:
     ca:
