@@ -6,6 +6,8 @@
  */
 package sk.tomsik68.contestadmn;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -14,6 +16,7 @@ import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
@@ -30,17 +33,44 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class ContestAdmin extends JavaPlugin {
     private String consolePurge;
     private static final HashSet<String> contestProperties = new HashSet<String>(Arrays.asList("name", "creator", "desc", "rules", "banned", "ended"));
+    private static ChatColor color1, color2, color3;
 
     @Override
     public void onEnable() {
+        if (!new File(getDataFolder(), "config.yml").exists()) {
+            getDataFolder().mkdir();
+            YamlConfiguration config = new YamlConfiguration();
+            StringBuilder sb = new StringBuilder();
+            for (ChatColor cc : ChatColor.values()) {
+                sb = sb.append(cc.name()).append(',');
+            }
+            sb = sb.deleteCharAt(sb.length() - 1);
+            config.options().header("Available colors: " + sb.toString());
+            config.set("colors", "RED,GREEN");
+            try {
+                try {
+                    new File(getDataFolder(), "config.yml").createNewFile();
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+                config.save(new File(getDataFolder(), "config.yml"));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            color1 = ChatColor.RED;
+            color2 = ChatColor.GREEN;
+        } else {
+            color1 = ChatColor.valueOf(getConfig().getString("colors").split(",")[0]);
+            color2 = ChatColor.valueOf(getConfig().getString("colors").split(",")[1]);
+        }
         getCommand("ca").setExecutor(this);
         try {
             getDatabase().find(Contest.class).findRowCount();
-            System.out.println("[ContestAdmin] DB is ok.");
+            System.out.println(color2 + "[ContestAdmin] DB is ok.");
         } catch (Exception e) {
-            System.out.println("[ContestAdmin] Installing database due to first time usage...");
+            System.out.println(color2 + "[ContestAdmin] Installing database due to first time usage...");
             installDDL();
-            System.out.println("[ContestAdmin] Database setup success!");
+            System.out.println(color2 + "[ContestAdmin] Database setup success!");
         }
         super.onEnable();
     }
@@ -66,7 +96,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 List<Contest> contests = getContests();
-                sender.sendMessage("[ContestAdmin] Showing " + contests.size() + " contests: ");
+                sender.sendMessage(color2 + "[ContestAdmin] Showing " + contests.size() + " contests: ");
                 StringBuilder sb = new StringBuilder();
                 for (Contest con : contests) {
                     if (tookPartIn(con.getName(), sender.getName()))
@@ -80,7 +110,7 @@ public class ContestAdmin extends JavaPlugin {
                     sb = sb.deleteCharAt(sb.length() - 1);
                     sender.sendMessage(sb.toString());
                 } else
-                    sender.sendMessage("[ContestAdmin] There are no on-going contests.");
+                    sender.sendMessage(color1 + "[ContestAdmin] There are no on-going contests.");
                 return true;
             }
         }
@@ -91,11 +121,11 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 } else {
                     addContest(args[1], sender.getName());
-                    getServer().broadcastMessage("[ContestAdmin] Contest " + args[1] + " has just been promoted! Type /ca info " + args[1] + " to find out more!");
+                    getServer().broadcastMessage(color2 + "[ContestAdmin] Contest " + args[1] + " has just been promoted! Type /ca info " + args[1] + " to find out more!");
                     return true;
                 }
 
@@ -111,10 +141,10 @@ public class ContestAdmin extends JavaPlugin {
                     contest.setEnded(true);
 
                     addContest(contest);
-                    getServer().broadcastMessage("[ContestAdmin] Contest " + args[1] + " has just ended. Let it be judged. Good luck there!");
+                    getServer().broadcastMessage(color2 + "[ContestAdmin] Contest " + args[1] + " has just ended. Let it be judged. Good luck there!");
                     return true;
                 } else {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
             } else if (args[0].equalsIgnoreCase("tp")) {
@@ -123,7 +153,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 ContestEntry entry = getEntry(args[1], sender.getName());
@@ -131,16 +161,16 @@ public class ContestAdmin extends JavaPlugin {
                     if (sender instanceof Player) {
                         Player player = (Player) sender;
                         player.teleport(entry.getLocation());
-                        sender.sendMessage("[ContestAdmin] Welcome to your contest entry.");
+                        sender.sendMessage(color2 + "[ContestAdmin] Welcome to your contest entry.");
                     } else {
-                        sender.sendMessage("[ContestAdmin] You need to be player to use this command.");
+                        sender.sendMessage(color1 + "[ContestAdmin] You need to be player to use this command.");
                         return true;
                     }
                 } else {
                     if (getContest(args[1]).isEnded())
-                        sender.sendMessage("[ContestAdmin] You haven't submitted any entry to " + args[1] + ". Bad luck, contest has already ended.");
+                        sender.sendMessage(color1 + "[ContestAdmin] You haven't submitted any entry to " + args[1] + ". Bad luck, contest has already ended.");
                     else
-                        sender.sendMessage("[ContestAdmin] You haven't submitted any entry to " + args[1] + ". However, you can still submit your entry.");
+                        sender.sendMessage(color1 + "[ContestAdmin] You haven't submitted any entry to " + args[1] + ". However, you can still submit your entry.");
                     return true;
                 }
 
@@ -150,11 +180,11 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!(sender instanceof Player)) {
-                    sender.sendMessage("[ContestAdmin] You need to be player to use this command.");
+                    sender.sendMessage(color1 + "[ContestAdmin] You need to be player to use this command.");
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 enterContest(args[1], (Player) sender);
@@ -165,37 +195,33 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!(sender instanceof Player)) {
-                    sender.sendMessage("[ContestAdmin] You need to be player to use this command.");
+                    sender.sendMessage(color1 + "[ContestAdmin] You need to be player to use this command.");
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 // TODO discuss
                 if (!getContest(args[1]).isEnded()) {
                     unsubmit(args[1], (Player) sender);
-                    sender.sendMessage("[ContestAdmin] You've just left " + args[1] + ".");
+                    sender.sendMessage(color2 + "[ContestAdmin] You've just left " + args[1] + ".");
                 } else {
-                    sender.sendMessage("[ContestAdmin] You can't left " + args[1] + ". Contest has already been closed.");
+                    sender.sendMessage(color1 + "[ContestAdmin] You can't left " + args[1] + ". Contest has already been closed.");
                 }
             } else if (args[0].equalsIgnoreCase("purge")) {
                 if (!sender.hasPermission("ca.purge")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
-                if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
-                    return true;
-                }
                 if (args[1].equalsIgnoreCase("confirm")) {
                     if (!(sender instanceof Player)) {
                         if (consolePurge == null) {
-                            sender.sendMessage("[ContestAdmin] You've got nothing to confirm.");
+                            sender.sendMessage(color1 + "[ContestAdmin] You've got nothing to confirm.");
                             return true;
                         }
                         if (!contestExists(consolePurge)) {
-                            sender.sendMessage("[ContestAdmin] Contest " + consolePurge + " doesn't exist.");
+                            sender.sendMessage(color1 + "[ContestAdmin] Contest " + consolePurge + " doesn't exist.");
                             return true;
                         }
                         removeContestData(consolePurge, sender);
@@ -215,7 +241,11 @@ public class ContestAdmin extends JavaPlugin {
                     } else {
                         ((Player) sender).setMetadata("ca-purge", new FixedMetadataValue(this, args[1]));
                     }
-                    sender.sendMessage("[ContestAdmin] Purging " + args[1] + ". Are you sure? confirm with /ca purge confirm");
+                    if (!contestExists(args[1])) {
+                        sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                        return true;
+                    }
+                    sender.sendMessage(color1 + "[ContestAdmin] Purging " + args[1] + ". Are you sure? confirm with /ca purge confirm");
                     return true;
                 }
             } else if (args[0].equalsIgnoreCase("tpord")) {
@@ -224,11 +254,11 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!(sender instanceof Player)) {
-                    sender.sendMessage("[ContestAdmin] You need to be player to use this command.");
+                    sender.sendMessage(color1 + "[ContestAdmin] You need to be player to use this command.");
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 tpOrd(args[1], (Player) sender);
@@ -239,26 +269,26 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 Contest contest = getContest(args[1]);
-                sender.sendMessage("Contest Name: " + args[1]);
-                sender.sendMessage("Organisator: " + contest.getStarter());
+                sender.sendMessage(color2 + "Contest Name: " + args[1]);
+                sender.sendMessage(color2 + "Organisator: " + contest.getStarter());
                 if (contest.getBannedUsers() != null && contest.getBannedUsers().length() > 0)
-                    sender.sendMessage("Banned: " + contest.getBannedUsers());
+                    sender.sendMessage(color2 + "Banned: " + contest.getBannedUsers());
                 if (contest.isEnded())
-                    sender.sendMessage("Ended");
+                    sender.sendMessage(color1 + "Ended");
                 else
-                    sender.sendMessage("Accepting entries");
+                    sender.sendMessage(color2 + "Accepting entries");
                 if (contest.getDescription() != null && contest.getDescription().length() > 0)
                     sender.sendMessage(contest.getDescription());
                 if (contest.getRules() != null && contest.getRules().length() > 0) {
-                    sender.sendMessage("Rules:");
-                    sender.sendMessage(contest.getRules());
+                    sender.sendMessage(color2 + "Rules:");
+                    sender.sendMessage(color2 + contest.getRules());
                 }
                 if (contest.getWinner() != null && contest.getWinner().length() > 0) {
-                    sender.sendMessage("Winner: " + contest.getWinner());
+                    sender.sendMessage(color2 + "Winner: " + contest.getWinner());
                 }
                 return true;
             } else if (args[0].equalsIgnoreCase("who")) {
@@ -267,12 +297,12 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 List<ContestEntry> entries = getEntries(args[1]);
                 if (entries.size() == 0) {
-                    sender.sendMessage("[ContestAdmin] No one has took part in this contest yet.");
+                    sender.sendMessage(color1 + "[ContestAdmin] No one has took part in this contest yet.");
                     return true;
                 }
                 StringBuilder sb = new StringBuilder();
@@ -283,7 +313,7 @@ public class ContestAdmin extends JavaPlugin {
                         sb = sb.append(ChatColor.RED).append(entry.getPlayerName()).append(ChatColor.WHITE).append(',');
                 }
                 sb = sb.deleteCharAt(sb.length() - 1);
-                sender.sendMessage("[ContestAdmin] Users who took part in " + args[1]);
+                sender.sendMessage(color2 + "[ContestAdmin] Users who took part in " + args[1] + " [LIGHT BLUE] = online [RED] = offline");
                 sender.sendMessage(sb.toString());
                 return true;
             }
@@ -294,15 +324,15 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!(sender instanceof Player)) {
-                    sender.sendMessage("[ContestAdmin] You need to be player to use this command.");
+                    sender.sendMessage(color1 + "[ContestAdmin] You need to be player to use this command.");
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 if (!tookPartIn(args[1], args[2])) {
-                    sender.sendMessage("[ContestAdmin] " + args[2] + " hasn't submitted any entry to " + args[1]);
+                    sender.sendMessage(color1 + "[ContestAdmin] " + args[2] + " hasn't submitted any entry to " + args[1]);
                     return true;
                 }
                 ((Player) sender).teleport(getEntry(args[1], args[2]).getLocation());
@@ -313,11 +343,11 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 if (!tookPartIn(args[1], args[2])) {
-                    sender.sendMessage("[ContestAdmin] " + args[2] + " hasn't submitted any entry to " + args[1]);
+                    sender.sendMessage(color1 + "[ContestAdmin] " + args[2] + " hasn't submitted any entry to " + args[1]);
                     return true;
                 }
                 removeEntry(args[1], args[2]);
@@ -327,11 +357,11 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 if (!getContest(args[1]).isEnded()) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " hasn't ended yet, but we'll end it for you. :)");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " hasn't ended yet, but we'll end it for you. :)");
                 }
                 Contest con = getContest(args[1]);
                 removeContest(args[1]);
@@ -340,7 +370,7 @@ public class ContestAdmin extends JavaPlugin {
                 contest.setWinner(args[2]);
 
                 addContest(contest);
-                getServer().broadcastMessage("[ContestAdmin] And the winner of " + args[1] + " iiiiiiiiiiiiis: ");
+                getServer().broadcastMessage(color2 + "[ContestAdmin] And the winner of " + args[1] + " iiiiiiiiiiiiis: ");
                 getServer().broadcastMessage(args[2]);
                 return true;
             }
@@ -351,11 +381,11 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 if (!contestProperties.contains(args[2])) {
-                    sender.sendMessage("[ContestAdmin] Property " + args[2] + " doesn't exist");
+                    sender.sendMessage(color1 + "[ContestAdmin] Property " + args[2] + " doesn't exist");
                     return true;
                 }
                 if (args[2].equalsIgnoreCase("name")) {
@@ -387,7 +417,7 @@ public class ContestAdmin extends JavaPlugin {
                     contest.setEnded(Boolean.valueOf(args[3]));
                     addContest(contest);
                 }
-                sender.sendMessage("[ContestAdmin] "+args[2]+" of "+args[1]+" set to "+args[3]);
+                sender.sendMessage(color2 + "[ContestAdmin] " + args[2] + " of " + args[1] + " set to " + args[3]);
                 return true;
             }
 
@@ -398,7 +428,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
                 if (!contestExists(args[1])) {
-                    sender.sendMessage("[ContestAdmin] Contest " + args[1] + " doesn't exist.");
+                    sender.sendMessage(color1 + "[ContestAdmin] Contest " + args[1] + " doesn't exist.");
                     return true;
                 }
                 Contest con = getContest(args[1]);
@@ -406,11 +436,11 @@ public class ContestAdmin extends JavaPlugin {
                 Contest contest = (Contest) con.clone();
                 if (args[3].equalsIgnoreCase("add")) {
                     contest.setBannedUsers(contest.getBannedUsers() + ("," + args[4]));
-                    sender.sendMessage("[ContestAdmin] Successfully banned " + args[4] + " from " + args[1]);
+                    sender.sendMessage(color2 + "[ContestAdmin] Successfully banned " + args[4] + " from " + args[1]);
                 } else if (args[3].equalsIgnoreCase("remove")) {
                     contest.getBannedUsers().replace(args[4], "");
                     contest.getBannedUsers().replace(",,", ",");
-                    sender.sendMessage("[ContestAdmin] Successfully un-banned " + args[4] + " from " + args[1]);
+                    sender.sendMessage(color2 + "[ContestAdmin] Successfully un-banned " + args[4] + " from " + args[1]);
                 }
                 addContest(contest);
                 return true;
@@ -423,7 +453,7 @@ public class ContestAdmin extends JavaPlugin {
             if (sb.length() > 0)
                 sb = sb.deleteCharAt(sb.length() - 1);
             else {
-                sender.sendMessage("[ContestAdmin] Property value invalid.");
+                sender.sendMessage(color1 + "[ContestAdmin] Property value invalid.");
                 return true;
             }
 
@@ -435,11 +465,11 @@ public class ContestAdmin extends JavaPlugin {
             } else if (args[2].equalsIgnoreCase("rules")) {
                 contest.setRules(sb.toString());
             } else {
-                sender.sendMessage("[ContestAdmin] Property " + args[2] + " unknown");
+                sender.sendMessage(color1 + "[ContestAdmin] Property " + args[2] + " unknown");
                 return true;
             }
             addContest(contest);
-            sender.sendMessage("[ContestAdmin] " + args[2] + " of " + args[1] + " set.");
+            sender.sendMessage(color2 + "[ContestAdmin] " + args[2] + " of " + args[1] + " set.");
             return true;
         }
 
@@ -453,18 +483,18 @@ public class ContestAdmin extends JavaPlugin {
     private void removeContestData(String contest, CommandSender sender) {
         getDatabase().delete(getDatabase().find(Contest.class).where().ieq("name", contest).findUnique());
         getDatabase().delete(getDatabase().find(ContestEntry.class).where().ieq("contestName", contest).findList());
-        sender.sendMessage("[ContestAdmin] Data of " + contest + " were removed.");
+        sender.sendMessage(color2 + "[ContestAdmin] Data of " + contest + " were removed.");
     }
 
     private void tpOrd(String contest, Player player) {
         if (!contestExists(contest)) {
-            player.sendMessage("[ContestAdmin] Contest " + contest + " doesn't exist.");
+            player.sendMessage(color1 + "[ContestAdmin] Contest " + contest + " doesn't exist.");
             return;
         }
         if (!player.hasMetadata("ca-tpord")) {
             player.setMetadata("ca-tpord", new FixedMetadataValue(this, -1));
             if (!getContest(contest).isEnded()) {
-                player.sendMessage("[ContestAdmin] Please note contest hasn't ended yet. Players can still submit new entries.");
+                player.sendMessage(color1 + "[ContestAdmin] Please note contest hasn't ended yet. Players can still submit new entries.");
             }
         }
         List<MetadataValue> values = player.getMetadata("ca-tpord");
@@ -481,9 +511,9 @@ public class ContestAdmin extends JavaPlugin {
         List<ContestEntry> entries = getEntries(contest);
         if (ord < entries.size()) {
             player.teleport(entries.get(ord).getLocation());
-            player.sendMessage("This is entry by: " + entries.get(ord).getPlayerName());
+            player.sendMessage(color2 + "This is entry by: " + entries.get(ord).getPlayerName());
         } else {
-            player.sendMessage("[ContestAdmin] No more entries on this contest. Move on to judging results.");
+            player.sendMessage(color1 + "[ContestAdmin] No more entries on this contest. Move on to judging results.");
             player.removeMetadata("ca-tpord", this);
         }
 
@@ -495,11 +525,11 @@ public class ContestAdmin extends JavaPlugin {
 
     private void unsubmit(String contest, Player player) {
         if (!contestExists(contest)) {
-            player.sendMessage("[ContestAdmin] Contest " + contest + " doesn't exist.");
+            player.sendMessage(color1 + "[ContestAdmin] Contest " + contest + " doesn't exist.");
             return;
         }
         if (!tookPartIn(contest, player.getName())) {
-            player.sendMessage("[ContestAdmin] You haven't even took part in " + contest);
+            player.sendMessage(color1 + "[ContestAdmin] You haven't even took part in " + contest);
             return;
         }
         getDatabase().delete(getEntry(contest, player.getName()));
@@ -507,15 +537,15 @@ public class ContestAdmin extends JavaPlugin {
 
     private void enterContest(String contest, Player player) {
         if (!contestExists(contest)) {
-            player.sendMessage("[ContestAdmin] Contest " + contest + " doesn't exist.");
+            player.sendMessage(color1 + "[ContestAdmin] Contest " + contest + " doesn't exist.");
             return;
         }
         if (isBanned(contest, player.getName())) {
-            player.sendMessage("[ContestAdmin] You can't take part in " + contest + ".");
+            player.sendMessage(color1 + "[ContestAdmin] You can't take part in " + contest + ".");
             return;
         }
         if (tookPartIn(contest, player.getName())) {
-            player.sendMessage("[ContestAdmin] You've already took part in " + contest);
+            player.sendMessage(color1 + "[ContestAdmin] You've already took part in " + contest);
             return;
         }
         ContestEntry entry = new ContestEntry();
@@ -526,7 +556,7 @@ public class ContestAdmin extends JavaPlugin {
         entry.setY(player.getLocation().getY());
         entry.setZ(player.getLocation().getZ());
         getDatabase().save(entry);
-        player.sendMessage("[ContestAdmin] Entry submitted. Good luck! You can unsubmit your entry by /ca unsub " + contest);
+        player.sendMessage(color2 + "[ContestAdmin] Entry submitted. Good luck! You can unsubmit your entry by /ca unsub " + contest);
     }
 
     private boolean tookPartIn(String contest, String player) {
