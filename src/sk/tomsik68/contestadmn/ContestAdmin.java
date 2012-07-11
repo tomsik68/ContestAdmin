@@ -22,6 +22,8 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import sk.tomsik68.permsguru.EPermissions;
+
 /**
  * ContestAdmin - Contest administration helper plugin for Bukkit. Check <a
  * href="http://dev.bukkit.org/server-mods/contestadmin/">Plugin's Homepage</a>
@@ -33,8 +35,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class ContestAdmin extends JavaPlugin {
     private String consolePurge;
     private static final HashSet<String> contestProperties = new HashSet<String>(Arrays.asList("name", "creator", "desc", "rules", "banned", "ended"));
-    private static ChatColor color1, color2, color3;
-
+    private static ChatColor color1, color2;
+    private static EPermissions perms;
     @Override
     public void onEnable() {
         if (!new File(getDataFolder(), "config.yml").exists()) {
@@ -46,6 +48,10 @@ public class ContestAdmin extends JavaPlugin {
             }
             sb = sb.deleteCharAt(sb.length() - 1);
             config.options().header("Available colors: " + sb.toString());
+            config.options().header("Available permission systems(values must exactly match):");
+            config.options().header("    SP - SuperPerms Use for permissions provided by server, or an external plugin");
+            config.options().header("    OP - OPs can do everything");
+            config.options().header("    None - Use for disabled permissions => everyone can do everything");
             config.set("colors", "RED,GREEN");
             try {
                 try {
@@ -59,9 +65,11 @@ public class ContestAdmin extends JavaPlugin {
             }
             color1 = ChatColor.RED;
             color2 = ChatColor.GREEN;
+            perms = EPermissions.SP;
         } else {
             color1 = ChatColor.valueOf(getConfig().getString("colors").split(",")[0]);
             color2 = ChatColor.valueOf(getConfig().getString("colors").split(",")[1]);
+            perms = EPermissions.parse(getConfig().getString("permissions"));
         }
         getCommand("ca").setExecutor(this);
         try {
@@ -91,7 +99,7 @@ public class ContestAdmin extends JavaPlugin {
         }
         if (args.length == 1) {
             if (args[0].equalsIgnoreCase("list")) {
-                if (!sender.hasPermission("ca.list")) {
+                if (!perms.has(sender,"ca.list")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -101,7 +109,7 @@ public class ContestAdmin extends JavaPlugin {
                 for (Contest con : contests) {
                     if (tookPartIn(con.getName(), sender.getName()))
                         sb = sb.append(ChatColor.BLUE).append(con.getName()).append(',');
-                    else if (sender.hasPermission("ca.sub") && !isBanned(con.getName(), sender.getName()))
+                    else if (perms.has(sender,"ca.sub") && !isBanned(con.getName(), sender.getName()))
                         sb = sb.append(ChatColor.GREEN).append(con.getName()).append(',');
                     else
                         sb = sb.append(ChatColor.RED).append(con.getName()).append(',');
@@ -116,7 +124,7 @@ public class ContestAdmin extends JavaPlugin {
         }
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("start")) {
-                if (!sender.hasPermission("ca.start")) {
+                if (!perms.has(sender,"ca.start")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -130,7 +138,7 @@ public class ContestAdmin extends JavaPlugin {
                 }
 
             } else if (args[0].equalsIgnoreCase("stop")) {
-                if (!sender.hasPermission("ca.stop")) {
+                if (!perms.has(sender,"ca.stop")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -148,7 +156,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
             } else if (args[0].equalsIgnoreCase("tp")) {
-                if (!sender.hasPermission("ca.tpmy")) {
+                if (!perms.has(sender,"ca.tpmy")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -175,7 +183,7 @@ public class ContestAdmin extends JavaPlugin {
                 }
 
             } else if (args[0].equalsIgnoreCase("sub")) {
-                if (!sender.hasPermission("ca.sub")) {
+                if (!perms.has(sender,"ca.sub")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -190,7 +198,7 @@ public class ContestAdmin extends JavaPlugin {
                 enterContest(args[1], (Player) sender);
                 return true;
             } else if (args[0].equalsIgnoreCase("unsub")) {
-                if (!sender.hasPermission("ca.unsub")) {
+                if (!perms.has(sender,"ca.unsub")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -210,7 +218,7 @@ public class ContestAdmin extends JavaPlugin {
                     sender.sendMessage(color1 + "[ContestAdmin] You can't left " + args[1] + ". Contest has already been closed.");
                 }
             } else if (args[0].equalsIgnoreCase("purge")) {
-                if (!sender.hasPermission("ca.purge")) {
+                if (!perms.has(sender,"ca.purge")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -249,7 +257,7 @@ public class ContestAdmin extends JavaPlugin {
                     return true;
                 }
             } else if (args[0].equalsIgnoreCase("tpord")) {
-                if (!sender.hasPermission("ca.tpord")) {
+                if (!perms.has(sender,"ca.tpord")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -264,7 +272,7 @@ public class ContestAdmin extends JavaPlugin {
                 tpOrd(args[1], (Player) sender);
                 return true;
             } else if (args[0].equalsIgnoreCase("info")) {
-                if (!sender.hasPermission("ca.info")) {
+                if (!perms.has(sender,"ca.info")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -292,7 +300,7 @@ public class ContestAdmin extends JavaPlugin {
                 }
                 return true;
             } else if (args[0].equalsIgnoreCase("who")) {
-                if (!sender.hasPermission("ca.who")) {
+                if (!perms.has(sender,"ca.who")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -319,7 +327,7 @@ public class ContestAdmin extends JavaPlugin {
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("tp")) {
-                if (!sender.hasPermission("ca.tp")) {
+                if (!perms.has(sender,"ca.tp")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -338,7 +346,7 @@ public class ContestAdmin extends JavaPlugin {
                 ((Player) sender).teleport(getEntry(args[1], args[2]).getLocation());
                 return true;
             } else if (args[0].equalsIgnoreCase("remove")) {
-                if (!sender.hasPermission("ca.remove")) {
+                if (!perms.has(sender,"ca.remove")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -352,7 +360,7 @@ public class ContestAdmin extends JavaPlugin {
                 }
                 removeEntry(args[1], args[2]);
             } else if (args[0].equalsIgnoreCase("win")) {
-                if (!sender.hasPermission("ca.win")) {
+                if (!perms.has(sender,"ca.win")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -376,7 +384,7 @@ public class ContestAdmin extends JavaPlugin {
             }
         } else if (args.length == 4) {
             if (args[0].equalsIgnoreCase("mod")) {
-                if (!sender.hasPermission("ca.mod")) {
+                if (!perms.has(sender,"ca.mod")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
@@ -423,7 +431,7 @@ public class ContestAdmin extends JavaPlugin {
 
         } else if (args.length == 5) {
             if (args[0].equalsIgnoreCase("mod") && args[2].equalsIgnoreCase("banned")) {
-                if (!sender.hasPermission("ca.mod")) {
+                if (!perms.has(sender,"ca.mod")) {
                     sender.sendMessage(command.getPermissionMessage());
                     return true;
                 }
